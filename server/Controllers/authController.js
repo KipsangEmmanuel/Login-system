@@ -5,43 +5,76 @@ const test = (req, res) => {
     res.json('test is working')
 }
 
+//Register endpoint
 const registerUser = async (req, res) => {
-    try{
-        //check what should be requested from the body
-        const {name, email, password} = req.body;
-        //check if the name was enstered
-        if(!name) {
+    try {
+        //get the requested body
+        const { name, email, password } = req.body;
+
+        // Validate input
+        if (!name || !email || !password || password.length < 6) {
             return res.json({
-                error: "Name is required"
-            })
-        }
-        //check password
-        if(!password || password.length < 6) {
-            return res.json({
-                error: "Password is required and should not be less than 6 characters"
-            })
-        }
-        //check if the email already exist
-        const exist = await User.findOne({email})
-        if(exist) {
-            return res.json({
-                error: "Email aready exist"
-            })
+                error: "Invalid input. Name, email, and a password with at least 6 characters are required."
+            });
         }
 
+        // Check if the email already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.json({
+                error: "Email already exists."
+            });
+        }
+
+        // Hash the password
         const hashedPassword = await hashPassword(password);
-        //create user in the database
-        const user = await User.create({
+
+        // Create the user in the database
+        const newUser = await User.create({
             name,
             email,
-            password: hashedPassword,
-        })
-        return res.json(user);
+            password: hashedPassword
+        });
 
-    }catch (error) {
-        console.log(error)
+        return res.json(newUser);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            error: "Internal server error."
+        });
     }
+};
 
-}
+//Login endpoint
+const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-module.exports = { test, registerUser }
+        // Find the user by email
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.json({
+                error: "No user found."
+            });
+        }
+
+        // Compare the provided password with the hashed password
+        const passwordMatch = await comparePassword(password, user.password);
+
+        if (passwordMatch) {
+            return res.json('Password matches');
+        } else {
+            return res.json({
+                error: "Password does not match."
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            error: "Internal server error."
+        });
+    }
+};
+
+module.exports = { test, registerUser, loginUser }
